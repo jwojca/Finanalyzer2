@@ -4,6 +4,7 @@ Transactions view frame for FinAnalazer2.
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable, Optional
+import threading
 import customtkinter as ctk
 
 from app import database as db
@@ -178,9 +179,22 @@ class TransactionsFrame(ctk.CTkFrame):
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
 
+        # Loading overlay
+        self._loading_label = ctk.CTkLabel(
+            tree_frame, text="Načítám...",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            fg_color=("#cccccc", "#2b2b2b"), corner_radius=8,
+            text_color=("black", "white"), width=160, height=40
+        )
+        self._loading_dots = 0
+        self._loading_job = None
+        self._wait_job = None
+        self.bind("<Destroy>", self._on_destroy)
+
         # Context menu
         self._ctx_menu = tk.Menu(self, tearoff=0)
         self._ctx_menu.add_command(label="Přiřadit kategorii…", command=self._assign_category)
+        self._ctx_menu.add_command(label="Vytvořit pravidlo…", command=self._create_rule)
         self._ctx_menu.add_command(label="Označit jako převod", command=self._mark_transfer)
         self._ctx_menu.add_command(label="Zrušit kategorii", command=self._clear_category)
 
@@ -252,41 +266,85 @@ class TransactionsFrame(ctk.CTkFrame):
         self._offset = 0
         self._load_transactions()
 
+    def _on_destroy(self, event):
+        if event.widget is self:
+            if self._loading_job:
+                self.after_cancel(self._loading_job)
+                self._loading_job = None
+            if self._wait_job:
+                self.after_cancel(self._wait_job)
+                self._wait_job = None
+
+    def _show_loading(self):
+        self._loading_label.place(relx=0.5, rely=0.5, anchor="center")
+        self._loading_label.lift()
+        self._animate_loading()
+
+    def _animate_loading(self):
+        dots = "." * (self._loading_dots % 4)
+        self._loading_label.configure(text=f"Načítám{dots}")
+        self._loading_dots += 1
+        self._loading_job = self.after(400, self._animate_loading)
+
+    def _hide_loading(self):
+        if self._loading_job:
+            self.after_cancel(self._loading_job)
+            self._loading_job = None
+        self._loading_label.place_forget()
+
     def _load_transactions(self):
         filters = self._get_filters()
         filters['limit'] = PAGE_SIZE
         filters['offset'] = self._offset
 
-        try:
-            rows = db.get_transactions(filters)
-            count_filters = dict(filters)
-            count_filters.pop('limit', None)
-            count_filters.pop('offset', None)
-            self._total_count = db.get_transaction_count(count_filters)
-        except Exception as e:
-            messagebox.showerror("Chyba", f"Nelze načíst transakce:\n{e}")
+        self._show_loading()
+        result: dict = {}
+
+        def fetch():
+            try:
+                result['rows'] = db.get_transactions(filters)
+                count_filters = dict(filters)
+                count_filters.pop('limit', None)
+                count_filters.pop('offset', None)
+                result['count'] = db.get_transaction_count(count_filters)
+            except Exception as e:
+                result['error'] = e
+
+        thread = threading.Thread(target=fetch, daemon=True)
+        thread.start()
+        self._wait_for_load(thread, result)
+
+    def _wait_for_load(self, thread, result):
+        if thread.is_alive():
+            self._wait_job = self.after(50, lambda: self._wait_for_load(thread, result))
             return
+        self._wait_job = None
+
+        self._hide_loading()
+
+        if 'error' in result:
+            messagebox.showerror("Chyba", f"Nelze načíst transakce:\n{result['error']}")
+            return
+
+        rows = result['rows']
+        self._total_count = result['count']
 
         if self._offset == 0:
             self._current_rows = list(rows)
-            # Clear tree
             for item in self._tree.get_children():
                 self._tree.delete(item)
         else:
             self._current_rows.extend(rows)
 
-        # Populate tree with new rows only
         for row in rows:
             self._insert_row(row)
 
-        # Update pagination info
         shown = len(self._current_rows)
         self._page_info_var.set(f"Zobrazeno {shown} z {self._total_count} transakcí")
         self._load_more_btn.configure(
             state="normal" if shown < self._total_count else "disabled"
         )
 
-        # Update stats
         self._update_stats()
 
     def _insert_row(self, row):
@@ -396,6 +454,31 @@ class TransactionsFrame(ctk.CTkFrame):
                     self.on_category_change()
             except Exception as e:
                 messagebox.showerror("Chyba", f"Nelze uložit kategorii:\n{e}")
+
+    def _create_rule(self):
+        ids = self._get_selected_ids()
+        if len(ids) != 1:
+            messagebox.showinfo("Pravidlo", "Vyberte právě jednu transakci.")
+            return
+        tx_id = ids[0]
+        row = next((r for r in self._current_rows if r['id'] == tx_id), None)
+        if not row:
+            return
+
+        from app.ui.keywords_frame import KeywordDialog
+        keyword = row['description'] or row['payer_payee'] or row['message'] or ''
+        dialog = KeywordDialog(self, title="Vytvořit pravidlo z transakce", keyword=keyword)
+        self.wait_window(dialog)
+
+        if dialog.result:
+            kw, cat_id, field, priority = dialog.result
+            try:
+                db.add_keyword(kw, cat_id, field, priority)
+                messagebox.showinfo("Pravidlo", f"Pravidlo '{kw}' bylo ulozeno.")
+                if self.on_category_change:
+                    self.on_category_change()
+            except Exception as e:
+                messagebox.showerror("Chyba", str(e))
 
     def _mark_transfer(self):
         ids = self._get_selected_ids()

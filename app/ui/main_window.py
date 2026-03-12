@@ -3,6 +3,7 @@ Main application window for FinAnalazer2.
 """
 import tkinter as tk
 from tkinter import messagebox
+import threading
 import customtkinter as ctk
 
 from app import database as db
@@ -12,7 +13,6 @@ from app import categorizer
 from app.ui.transactions_frame import TransactionsFrame
 from app.ui.categories_frame import CategoriesFrame
 from app.ui.keywords_frame import KeywordsFrame
-from app.ui.charts_frame import ChartsFrame
 from app.ui.import_frame import ImportDialog
 
 ctk.set_appearance_mode("dark")
@@ -30,7 +30,6 @@ class MainWindow(ctk.CTk):
         self.geometry("1280x800")
         self.minsize(900, 600)
 
-        # Initialize database
         try:
             db.init_db()
             load_defaults()
@@ -40,8 +39,13 @@ class MainWindow(ctk.CTk):
             return
 
         self._build_ui()
-        self._run_initial_categorization()
         self.show_frame("prehled")
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(50, self._init_async)
+
+    def _on_close(self):
+        self.quit()
+        self.destroy()
 
     def _build_ui(self):
         # Grid layout: sidebar | content
@@ -136,10 +140,12 @@ class MainWindow(ctk.CTk):
         self._frames["klic_slova"] = KeywordsFrame(
             self.content, on_change=self.refresh_all
         )
-        self._frames["grafy"] = ChartsFrame(self.content)
+        self._frames["grafy"] = None  # lazy init
 
         for frame in self._frames.values():
-            frame.grid(row=0, column=0, sticky="nsew")
+            if frame is not None:
+                frame.grid(row=0, column=0, sticky="nsew")
+                frame.grid_remove()
 
         self._current_frame = None
 
@@ -193,13 +199,29 @@ class MainWindow(ctk.CTk):
         except Exception:
             pass
 
-    def _run_initial_categorization(self):
-        try:
-            count = categorizer.categorize_all_uncategorized()
-            if count:
-                self.set_status(f"Automaticky kategorizováno: {count} transakcí")
-        except Exception as e:
-            self.set_status(f"Chyba při kategorizaci: {e}")
+    def _init_async(self):
+        result = {}
+
+        def work():
+            try:
+                result['count'] = categorizer.categorize_all_uncategorized()
+            except Exception as e:
+                result['error'] = e
+
+        def check(thread):
+            if thread.is_alive():
+                self.after(100, lambda: check(thread))
+                return
+            if result.get('count'):
+                self.set_status(f"Kategorizovano: {result['count']} transakci")
+            else:
+                self.set_status("Připraveno")
+            self._update_badge()
+            self._update_overview_stats()
+
+        t = threading.Thread(target=work, daemon=True)
+        t.start()
+        check(t)
 
     def _open_import(self):
         dialog = ImportDialog(self, on_done=self._on_import_done)
@@ -218,8 +240,14 @@ class MainWindow(ctk.CTk):
 
     def show_frame(self, name: str):
         # Deactivate all
-        for key, btn in self._nav_buttons.items():
+        for btn in self._nav_buttons.values():
             btn.configure(fg_color="transparent")
+
+        # Lazy init for charts (matplotlib is slow to initialize)
+        if name == "grafy" and self._frames["grafy"] is None:
+            from app.ui.charts_frame import ChartsFrame
+            self._frames["grafy"] = ChartsFrame(self.content)
+            self._frames["grafy"].grid(row=0, column=0, sticky="nsew")
 
         frame = self._frames.get(name)
         if frame is None:
