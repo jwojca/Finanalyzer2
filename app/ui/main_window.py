@@ -11,6 +11,30 @@ from app.default_data import load_defaults
 from app import categorizer
 
 from app.ui.transactions_frame import TransactionsFrame
+
+
+def _attach_tooltip(widget, text: str):
+    tip = None
+
+    def show(event):
+        nonlocal tip
+        x = widget.winfo_rootx() + widget.winfo_width() + 4
+        y = widget.winfo_rooty() + (widget.winfo_height() - 20) // 2
+        tip = tk.Toplevel(widget)
+        tip.wm_overrideredirect(True)
+        tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(tip, text=text, background="#2b2b2b", foreground="white",
+                 relief="flat", padx=6, pady=3,
+                 font=("Segoe UI", 10)).pack()
+
+    def hide(event):
+        nonlocal tip
+        if tip:
+            tip.destroy()
+            tip = None
+
+    widget.bind("<Enter>", show)
+    widget.bind("<Leave>", hide)
 from app.ui.categories_frame import CategoriesFrame
 from app.ui.keywords_frame import KeywordsFrame
 from app.ui.import_frame import ImportDialog
@@ -100,7 +124,7 @@ class MainWindow(ctk.CTk):
             btn.grid(row=3 + i, column=0, padx=8, pady=2, sticky="ew")
             self._nav_buttons[key] = btn
 
-        # Uncategorized badge label (shown on Transakce button)
+        # Uncategorized badge (Transakce)
         self._badge_var = tk.StringVar(value="")
         self._badge_label = ctk.CTkLabel(
             self.sidebar, textvariable=self._badge_var,
@@ -108,6 +132,17 @@ class MainWindow(ctk.CTk):
             font=ctk.CTkFont(size=11, weight="bold"),
             text_color="white", width=30, height=18
         )
+        _attach_tooltip(self._badge_label, "Počet nezařazených transakcí")
+
+        # Duplicate keywords badge (Klíčová slova)
+        self._dup_badge_var = tk.StringVar(value="")
+        self._dup_badge_label = ctk.CTkLabel(
+            self.sidebar, textvariable=self._dup_badge_var,
+            fg_color="#e74c3c", corner_radius=10,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="white", width=30, height=18
+        )
+        _attach_tooltip(self._dup_badge_label, "Počet duplicitních klíčových slov")
 
         # ── Content area ──────────────────────────────────────────────────────
         self.content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -295,7 +330,6 @@ class MainWindow(ctk.CTk):
             count = db.get_uncategorized_count()
             if count > 0:
                 self._badge_var.set(str(count))
-                # Position badge near Transakce button
                 btn = self._nav_buttons.get("transakce")
                 if btn:
                     self._badge_label.place(
@@ -306,6 +340,25 @@ class MainWindow(ctk.CTk):
             else:
                 self._badge_var.set("")
                 self._badge_label.place_forget()
+        except Exception:
+            pass
+        self._update_dup_badge()
+
+    def _update_dup_badge(self):
+        try:
+            count = db.get_duplicate_keywords_count()
+            if count > 0:
+                self._dup_badge_var.set(str(count))
+                btn = self._nav_buttons.get("klic_slova")
+                if btn:
+                    self._dup_badge_label.place(
+                        in_=self.sidebar, x=170, rely=0,
+                        y=btn.winfo_y() + 11
+                    )
+                    self._dup_badge_label.lift()
+            else:
+                self._dup_badge_var.set("")
+                self._dup_badge_label.place_forget()
         except Exception:
             pass
 

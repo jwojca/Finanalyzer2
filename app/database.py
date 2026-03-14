@@ -370,6 +370,17 @@ def get_uncategorized_count() -> int:
     return row[0] if row else 0
 
 
+def get_duplicate_keywords_count() -> int:
+    with get_conn() as conn:
+        row = conn.execute("""
+            SELECT COUNT(DISTINCT UPPER(keyword))
+            FROM keywords
+            GROUP BY UPPER(keyword)
+            HAVING COUNT(*) > 1
+        """).fetchall()
+    return len(row)
+
+
 def batch_categorize(assignments: List[Dict[str, Any]]):
     """assignments: list of {tx_id: int, category_id: int}"""
     with get_conn() as conn:

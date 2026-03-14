@@ -10,6 +10,30 @@ from app import database as db
 from app import categorizer
 
 
+def _attach_tooltip(widget, text: str):
+    tip = None
+
+    def show(event):
+        nonlocal tip
+        x = widget.winfo_rootx() + widget.winfo_width() + 4
+        y = widget.winfo_rooty() + (widget.winfo_height() - 20) // 2
+        tip = tk.Toplevel(widget)
+        tip.wm_overrideredirect(True)
+        tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(tip, text=text, background="#2b2b2b", foreground="white",
+                 relief="flat", padx=6, pady=3,
+                 font=("Segoe UI", 10)).pack()
+
+    def hide(event):
+        nonlocal tip
+        if tip:
+            tip.destroy()
+            tip = None
+
+    widget.bind("<Enter>", show)
+    widget.bind("<Leave>", hide)
+
+
 def _apply_treeview_style():
     style = ttk.Style()
     try:
@@ -76,12 +100,18 @@ class KeywordsFrame(ctk.CTkFrame):
             placeholder_text="Klíčové slovo…", width=200
         ).grid(row=0, column=3, padx=(0, 12), pady=8, sticky="w")
 
+        self._show_dups_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            top, text="Pouze duplicitní", variable=self._show_dups_var,
+            command=self._apply_filter
+        ).grid(row=0, column=4, padx=(0, 12), pady=8)
+
         # Recategorize button
         ctk.CTkButton(
             top, text="Překategorizovat vše", width=160,
             fg_color="#e67e22", hover_color="#d35400",
             command=self._recategorize_all
-        ).grid(row=0, column=4, padx=(0, 12), pady=8)
+        ).grid(row=0, column=5, padx=(0, 12), pady=8)
 
         # ── Treeview ──────────────────────────────────────────────────────────
         tree_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -112,6 +142,7 @@ class KeywordsFrame(ctk.CTkFrame):
         self._tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
 
+        self._tree.tag_configure("duplicate", background="#8b4a00", foreground="white")
         self._tree.bind("<Double-1>", lambda e: self._edit_keyword())
 
         # ── Bottom buttons ────────────────────────────────────────────────────
@@ -163,21 +194,32 @@ class KeywordsFrame(ctk.CTkFrame):
 
         try:
             all_kws = db.get_keywords(category_id=cat_id)
+            all_kws_global = db.get_keywords()  # all keywords for duplicate detection
         except Exception as e:
             messagebox.showerror("Chyba", str(e))
             return
+
+        # Detect duplicates (same keyword text, case-insensitive)
+        from collections import Counter
+        kw_counts = Counter(k['keyword'].upper() for k in all_kws_global)
+        dup_keywords = {kw for kw, cnt in kw_counts.items() if cnt > 1}
 
         # Clear tree
         for item in self._tree.get_children():
             self._tree.delete(item)
 
+        only_dups = self._show_dups_var.get()
         for kw in all_kws:
             if search and search not in kw['keyword'].lower():
+                continue
+            is_dup = kw['keyword'].upper() in dup_keywords
+            if only_dups and not is_dup:
                 continue
             field_label = FIELD_LABELS.get(kw['field'], kw['field'])
             self._tree.insert(
                 "", "end", iid=str(kw['id']),
-                values=(kw['keyword'], kw['category_name'], field_label, kw['priority'], kw['note'] or '')
+                values=(kw['keyword'], kw['category_name'], field_label, kw['priority'], kw['note'] or ''),
+                tags=("duplicate",) if is_dup else ()
             )
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
