@@ -109,8 +109,8 @@ def recategorize_all(auto_only: bool = True) -> int:
         cat_id = categorize_transaction(tx_dict, keywords)
         if cat_id is not None:
             assignments.append({'tx_id': tx['id'], 'category_id': cat_id})
-        elif not auto_only:
-            # Reset to uncategorized
+        else:
+            # Reset to uncategorized (keyword removed or no longer matches)
             assignments.append({'tx_id': tx['id'], 'category_id': None})
 
     if assignments:

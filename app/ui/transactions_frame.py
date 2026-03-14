@@ -278,7 +278,8 @@ class TransactionsFrame(ctk.CTkFrame):
     def _show_loading(self):
         self._loading_label.place(relx=0.5, rely=0.5, anchor="center")
         self._loading_label.lift()
-        self._animate_loading()
+        if not self._loading_job:
+            self._animate_loading()
 
     def _animate_loading(self):
         dots = "." * (self._loading_dots % 4)
@@ -293,6 +294,9 @@ class TransactionsFrame(ctk.CTkFrame):
         self._loading_label.place_forget()
 
     def _load_transactions(self):
+        if self._wait_job:
+            self.after_cancel(self._wait_job)
+            self._wait_job = None
         filters = self._get_filters()
         filters['limit'] = PAGE_SIZE
         filters['offset'] = self._offset
