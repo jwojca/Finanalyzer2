@@ -121,11 +121,12 @@ def add_category(name: str, parent_id: Optional[int] = None,
 
 
 def update_category(cat_id: int, name: str, color: str,
-                    is_transfer: bool = False, is_income: bool = False):
+                    is_transfer: bool = False, is_income: bool = False,
+                    parent_id: int = None):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE categories SET name=?, color=?, is_transfer=?, is_income=? WHERE id=?",
-            (name, color, int(is_transfer), int(is_income), cat_id)
+            "UPDATE categories SET name=?, color=?, is_transfer=?, is_income=?, parent_id=? WHERE id=?",
+            (name, color, int(is_transfer), int(is_income), parent_id, cat_id)
         )
 
 

@@ -356,7 +356,8 @@ class CategoriesFrame(ctk.CTkFrame):
         try:
             if self._selected_cat_id is not None:
                 db.update_category(self._selected_cat_id, name, color,
-                                   is_transfer=is_transfer, is_income=is_income)
+                                   is_transfer=is_transfer, is_income=is_income,
+                                   parent_id=parent_id)
                 self._info_var.set(f"Uloženo: {name}")
             else:
                 new_id = db.add_category(name, parent_id, color,
