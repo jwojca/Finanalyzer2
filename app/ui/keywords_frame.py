@@ -89,7 +89,7 @@ class KeywordsFrame(ctk.CTkFrame):
         tree_frame.grid_columnconfigure(0, weight=1)
         tree_frame.grid_rowconfigure(0, weight=1)
 
-        cols = ("keyword", "category", "field", "priority")
+        cols = ("keyword", "category", "field", "priority", "note")
         self._tree = ttk.Treeview(
             tree_frame, columns=cols, show="headings",
             style="Keywords.Treeview", selectmode="browse"
@@ -98,11 +98,13 @@ class KeywordsFrame(ctk.CTkFrame):
         self._tree.heading("category", text="Kategorie")
         self._tree.heading("field", text="Pole")
         self._tree.heading("priority", text="Priorita")
+        self._tree.heading("note", text="Poznámka")
 
-        self._tree.column("keyword", width=280, minwidth=150)
-        self._tree.column("category", width=200, minwidth=120)
-        self._tree.column("field", width=100, minwidth=80, anchor="center")
-        self._tree.column("priority", width=80, minwidth=60, anchor="center")
+        self._tree.column("keyword", width=200, minwidth=120)
+        self._tree.column("category", width=180, minwidth=100)
+        self._tree.column("field", width=90, minwidth=70, anchor="center")
+        self._tree.column("priority", width=70, minwidth=50, anchor="center")
+        self._tree.column("note", width=320, minwidth=150)
 
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=vsb.set)
@@ -175,7 +177,7 @@ class KeywordsFrame(ctk.CTkFrame):
             field_label = FIELD_LABELS.get(kw['field'], kw['field'])
             self._tree.insert(
                 "", "end", iid=str(kw['id']),
-                values=(kw['keyword'], kw['category_name'], field_label, kw['priority'])
+                values=(kw['keyword'], kw['category_name'], field_label, kw['priority'], kw['note'] or '')
             )
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
@@ -184,9 +186,9 @@ class KeywordsFrame(ctk.CTkFrame):
         dialog = KeywordDialog(self, title="Přidat klíčové slovo")
         self.wait_window(dialog)
         if dialog.result:
-            kw, cat_id, field, priority = dialog.result
+            kw, cat_id, field, priority, note = dialog.result
             try:
-                db.add_keyword(kw, cat_id, field, priority)
+                db.add_keyword(kw, cat_id, field, priority, note)
                 self.refresh()
                 if self.on_change:
                     self.on_change()
@@ -213,13 +215,14 @@ class KeywordsFrame(ctk.CTkFrame):
             keyword=current['keyword'],
             category_id=current['category_id'],
             field=current['field'],
-            priority=current['priority']
+            priority=current['priority'],
+            note=current['note'] or ''
         )
         self.wait_window(dialog)
         if dialog.result:
-            kw, cat_id, field, priority = dialog.result
+            kw, cat_id, field, priority, note = dialog.result
             try:
-                db.update_keyword(kw_id, kw, cat_id, field, priority)
+                db.update_keyword(kw_id, kw, cat_id, field, priority, note)
                 self.refresh()
                 if self.on_change:
                     self.on_change()
@@ -282,10 +285,10 @@ class KeywordsFrame(ctk.CTkFrame):
 class KeywordDialog(ctk.CTkToplevel):
     def __init__(self, parent, title="Klíčové slovo",
                  keyword: str = "", category_id: Optional[int] = None,
-                 field: str = "all", priority: int = 0):
+                 field: str = "all", priority: int = 0, note: str = ""):
         super().__init__(parent)
         self.title(title)
-        self.geometry("420x280")
+        self.geometry("460x320")
         self.resizable(False, False)
         self.result = None
 
@@ -293,6 +296,7 @@ class KeywordDialog(ctk.CTkToplevel):
         self._init_cat_id = category_id
         self._init_field = field
         self._init_priority = priority
+        self._init_note = note
 
         self._build_ui()
         self.after(50, self._center)
@@ -366,9 +370,17 @@ class KeywordDialog(ctk.CTkToplevel):
         ctk.CTkEntry(self, textvariable=self._priority_var, width=80).grid(
             row=3, column=1, padx=(0, 16), pady=6, sticky="w")
 
+        # Note
+        ctk.CTkLabel(self, text="Poznámka:").grid(
+            row=4, column=0, padx=16, pady=6, sticky="w")
+        self._note_var = tk.StringVar(value=self._init_note)
+        ctk.CTkEntry(self, textvariable=self._note_var, width=300,
+                     placeholder_text="Volitelný popis klíčového slova…").grid(
+            row=4, column=1, padx=(0, 16), pady=6, sticky="ew")
+
         # Buttons
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.grid(row=4, column=0, columnspan=2, padx=16, pady=(12, 16), sticky="e")
+        btn_frame.grid(row=5, column=0, columnspan=2, padx=16, pady=(12, 16), sticky="e")
 
         ctk.CTkButton(btn_frame, text="OK", width=80,
                       command=self._ok).pack(side="left", padx=(0, 8))
@@ -396,5 +408,6 @@ class KeywordDialog(ctk.CTkToplevel):
         except ValueError:
             priority = 0
 
-        self.result = (kw, cat_id, field, priority)
+        note = self._note_var.get().strip()
+        self.result = (kw, cat_id, field, priority, note)
         self.destroy()

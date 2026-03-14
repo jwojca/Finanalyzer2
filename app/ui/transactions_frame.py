@@ -475,9 +475,9 @@ class TransactionsFrame(ctk.CTkFrame):
         self.wait_window(dialog)
 
         if dialog.result:
-            kw, cat_id, field, priority = dialog.result
+            kw, cat_id, field, priority, note = dialog.result
             try:
-                db.add_keyword(kw, cat_id, field, priority)
+                db.add_keyword(kw, cat_id, field, priority, note)
                 messagebox.showinfo("Pravidlo", f"Pravidlo '{kw}' bylo ulozeno.")
                 if self.on_category_change:
                     self.on_category_change()

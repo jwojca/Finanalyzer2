@@ -49,7 +49,8 @@ def init_db():
                 keyword TEXT NOT NULL,
                 category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
                 field TEXT DEFAULT 'all',
-                priority INTEGER DEFAULT 0
+                priority INTEGER DEFAULT 0,
+                note TEXT DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS transactions (
@@ -75,6 +76,11 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(import_hash);
             CREATE INDEX IF NOT EXISTS idx_keywords_category ON keywords(category_id);
         """)
+        # Migration: add note column if missing (safe to run on existing DB)
+        try:
+            conn.execute("ALTER TABLE keywords ADD COLUMN note TEXT DEFAULT ''")
+        except Exception:
+            pass
 
 
 # ─── Categories ──────────────────────────────────────────────────────────────
@@ -172,21 +178,21 @@ def get_keywords(category_id: Optional[int] = None) -> List[sqlite3.Row]:
 
 
 def add_keyword(keyword: str, category_id: int,
-                field: str = 'all', priority: int = 0) -> int:
+                field: str = 'all', priority: int = 0, note: str = '') -> int:
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO keywords (keyword, category_id, field, priority) VALUES (?, ?, ?, ?)",
-            (keyword, category_id, field, priority)
+            "INSERT INTO keywords (keyword, category_id, field, priority, note) VALUES (?, ?, ?, ?, ?)",
+            (keyword, category_id, field, priority, note or '')
         )
         return cur.lastrowid
 
 
 def update_keyword(kw_id: int, keyword: str, category_id: int,
-                   field: str = 'all', priority: int = 0):
+                   field: str = 'all', priority: int = 0, note: str = ''):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE keywords SET keyword=?, category_id=?, field=?, priority=? WHERE id=?",
-            (keyword, category_id, field, priority, kw_id)
+            "UPDATE keywords SET keyword=?, category_id=?, field=?, priority=?, note=? WHERE id=?",
+            (keyword, category_id, field, priority, note or '', kw_id)
         )
 
 
