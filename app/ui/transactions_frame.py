@@ -51,6 +51,8 @@ class TransactionsFrame(ctk.CTkFrame):
         self._offset = 0
         self._total_count = 0
         self._current_rows: list = []
+        self._sort_col: str = 'date'
+        self._sort_dir: str = 'desc'
 
         _apply_treeview_style()
         self._build_ui()
@@ -150,12 +152,17 @@ class TransactionsFrame(ctk.CTkFrame):
             tree_frame, columns=columns, show="headings",
             selectmode="extended"
         )
-        self._tree.heading("date", text="Datum")
-        self._tree.heading("description", text="Popis")
-        self._tree.heading("message", text="Zpráva")
-        self._tree.heading("payer", text="Plátce/Příjemce")
-        self._tree.heading("amount", text="Částka")
-        self._tree.heading("category", text="Kategorie")
+        self._col_labels = {
+            'date': 'Datum',
+            'description': 'Popis',
+            'message': 'Zpráva',
+            'payer': 'Plátce/Příjemce',
+            'amount': 'Částka',
+            'category': 'Kategorie',
+        }
+        for col in self._col_labels:
+            self._tree.heading(col, text=self._col_labels[col],
+                               command=lambda c=col: self._on_sort(c))
 
         self._tree.column("date", width=100, minwidth=80, stretch=False)
         self._tree.column("description", width=200, minwidth=120)
@@ -260,7 +267,26 @@ class TransactionsFrame(ctk.CTkFrame):
         if search:
             filters['search'] = search
 
+        filters['order_by'] = self._sort_col
+        filters['order_dir'] = self._sort_dir
+
         return filters
+
+    def _on_sort(self, col: str):
+        if self._sort_col == col:
+            self._sort_dir = 'asc' if self._sort_dir == 'desc' else 'desc'
+        else:
+            self._sort_col = col
+            self._sort_dir = 'asc' if col != 'date' else 'desc'
+        self._update_sort_headings()
+        self._offset = 0
+        self._load_transactions()
+
+    def _update_sort_headings(self):
+        indicator = {'asc': ' ▲', 'desc': ' ▼'}
+        for col, label in self._col_labels.items():
+            text = label + (indicator[self._sort_dir] if col == self._sort_col else '')
+            self._tree.heading(col, text=text)
 
     def _on_filter_change(self):
         self._offset = 0

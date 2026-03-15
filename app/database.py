@@ -235,6 +235,16 @@ def insert_transaction(
             return False
 
 
+_SORT_COLUMN_MAP = {
+    'date':        't.date_posted',
+    'description': 't.description',
+    'message':     't.message',
+    'payer':       't.payer_payee',
+    'amount':      't.amount',
+    'category':    'c.name',
+}
+
+
 def get_transactions(filters: Optional[Dict[str, Any]] = None) -> List[sqlite3.Row]:
     """
     filters keys:
@@ -246,6 +256,8 @@ def get_transactions(filters: Optional[Dict[str, Any]] = None) -> List[sqlite3.R
       limit: int
       offset: int
       exclude_transfers: bool
+      order_by: str  (date | description | message | payer | amount | category)
+      order_dir: str (asc | desc)
     """
     if filters is None:
         filters = {}
@@ -261,6 +273,8 @@ def get_transactions(filters: Optional[Dict[str, Any]] = None) -> List[sqlite3.R
     limit = filters.get('limit', 500)
     offset = filters.get('offset', 0)
     exclude_transfers = filters.get('exclude_transfers', False)
+    order_by = _SORT_COLUMN_MAP.get(filters.get('order_by', ''), 't.date_posted')
+    order_dir = 'ASC' if filters.get('order_dir', 'desc') == 'asc' else 'DESC'
 
     if year:
         conditions.append("strftime('%Y', t.date_posted) = ?")
@@ -298,7 +312,7 @@ def get_transactions(filters: Optional[Dict[str, Any]] = None) -> List[sqlite3.R
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         {where}
-        ORDER BY t.date_posted DESC, t.id DESC
+        ORDER BY {order_by} {order_dir}, t.id {order_dir}
         LIMIT ? OFFSET ?
     """
     params.extend([limit, offset])
