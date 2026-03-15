@@ -35,6 +35,11 @@ def _attach_tooltip(widget, text: str):
 
 
 def _apply_treeview_style():
+    is_dark = ctk.get_appearance_mode().lower() == "dark"
+    bg      = "#2b2b2b" if is_dark else "#f5f5f5"
+    fg      = "white"   if is_dark else "#1a1a1a"
+    head_bg = "#3b3b3b" if is_dark else "#e0e0e0"
+
     style = ttk.Style()
     try:
         style.theme_use('clam')
@@ -42,12 +47,12 @@ def _apply_treeview_style():
         pass
     style.configure(
         "Keywords.Treeview",
-        background="#2b2b2b", foreground="white",
-        fieldbackground="#2b2b2b", rowheight=26, borderwidth=0
+        background=bg, foreground=fg,
+        fieldbackground=bg, rowheight=26, borderwidth=0
     )
     style.configure(
         "Keywords.Treeview.Heading",
-        background="#3b3b3b", foreground="white", relief="flat"
+        background=head_bg, foreground=fg, relief="flat"
     )
     style.map(
         "Keywords.Treeview",

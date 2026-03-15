@@ -11,21 +11,21 @@ from app import database as db
 
 
 def _apply_treeview_style():
+    is_dark = ctk.get_appearance_mode().lower() == "dark"
+    bg       = "#2b2b2b" if is_dark else "#f5f5f5"
+    fg       = "white"   if is_dark else "#1a1a1a"
+    head_bg  = "#3b3b3b" if is_dark else "#e0e0e0"
+
     style = ttk.Style()
     style.theme_use('clam')
     style.configure(
         "Treeview",
-        background="#2b2b2b",
-        foreground="white",
-        fieldbackground="#2b2b2b",
-        rowheight=28,
-        borderwidth=0
+        background=bg, foreground=fg,
+        fieldbackground=bg, rowheight=28, borderwidth=0
     )
     style.configure(
         "Treeview.Heading",
-        background="#3b3b3b",
-        foreground="white",
-        relief="flat"
+        background=head_bg, foreground=fg, relief="flat"
     )
     style.map(
         "Treeview",
@@ -225,6 +225,7 @@ class TransactionsFrame(ctk.CTkFrame):
         self._refresh_btn = ctk.CTkButton(
             pg_frame, text="Obnovit", width=90,
             fg_color="transparent", border_width=1,
+            text_color=("gray10", "gray90"),
             command=self.refresh
         )
         self._refresh_btn.pack(side="right", padx=4)

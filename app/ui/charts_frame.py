@@ -15,12 +15,16 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from app import database as db
 
-DARK_BG = '#2b2b2b'
-DARK_FG = '#cccccc'
-DARK_AXES = '#333333'
-GRID_COLOR = '#444444'
-
-plt.style.use('dark_background')
+def _c():
+    """Return theme-appropriate colors for matplotlib charts."""
+    is_dark = ctk.get_appearance_mode().lower() == "dark"
+    return {
+        'bg':   '#2b2b2b' if is_dark else '#f5f5f5',
+        'fg':   '#cccccc' if is_dark else '#1a1a1a',
+        'axes': '#333333' if is_dark else '#e8e8e8',
+        'grid': '#444444' if is_dark else '#cccccc',
+        'edge': '#1a1a1a',
+    }
 
 MONTHS_SHORT = ["Sty", "Úno", "Bře", "Dub", "Kvě", "Čvn",
                 "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
@@ -96,32 +100,34 @@ class ChartsFrame(ctk.CTkFrame):
         ctk.CTkButton(
             ctrl, text="Obnovit", width=80,
             fg_color="transparent", border_width=1,
+            text_color=("gray10", "gray90"),
             command=self.refresh
         ).grid(row=0, column=col, padx=(8, 12), pady=10)
 
         # ── Chart canvas ──────────────────────────────────────────────────────
-        canvas_frame = ctk.CTkFrame(self, fg_color=DARK_BG)
-        canvas_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
-        canvas_frame.grid_columnconfigure(0, weight=1)
-        canvas_frame.grid_rowconfigure(0, weight=1)
+        self._canvas_frame = ctk.CTkFrame(self, fg_color=_c()['bg'])
+        self._canvas_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
+        self._canvas_frame.grid_columnconfigure(0, weight=1)
+        self._canvas_frame.grid_rowconfigure(0, weight=1)
 
         self._fig, self._ax = plt.subplots(figsize=(10, 5.5))
-        self._fig.patch.set_facecolor(DARK_BG)
-        self._ax.set_facecolor(DARK_AXES)
+        self._fig.patch.set_facecolor(_c()['bg'])
+        self._ax.set_facecolor(_c()['axes'])
 
-        self._mpl_canvas = FigureCanvasTkAgg(self._fig, master=canvas_frame)
+        self._mpl_canvas = FigureCanvasTkAgg(self._fig, master=self._canvas_frame)
         self._mpl_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
         # ── No-data label ─────────────────────────────────────────────────────
         self._no_data_var = tk.StringVar(value="")
         self._no_data_label = ctk.CTkLabel(
-            canvas_frame, textvariable=self._no_data_var,
+            self._canvas_frame, textvariable=self._no_data_var,
             font=ctk.CTkFont(size=16), text_color="gray"
         )
 
     # ── Public ────────────────────────────────────────────────────────────────
 
     def refresh(self):
+        self._canvas_frame.configure(fg_color=_c()['bg'])
         self._update_year_combo()
         self._draw_chart()
 
@@ -167,20 +173,24 @@ class ChartsFrame(ctk.CTkFrame):
             self._show_error(str(e))
 
     def _clear_axes(self):
+        c = _c()
         self._fig.clear()
+        self._fig.patch.set_facecolor(c['bg'])
         self._ax = self._fig.add_subplot(111)
-        self._ax.set_facecolor(DARK_AXES)
+        self._ax.set_facecolor(c['axes'])
         self._no_data_label.place_forget()
 
     def _show_no_data(self, msg="Žádná data"):
+        c = _c()
         self._ax.clear()
-        self._ax.set_facecolor(DARK_BG)
+        self._ax.set_facecolor(c['bg'])
         self._ax.axis('off')
         self._mpl_canvas.draw()
 
     def _show_error(self, msg: str):
+        c = _c()
         self._ax.clear()
-        self._ax.set_facecolor(DARK_BG)
+        self._ax.set_facecolor(c['bg'])
         self._ax.axis('off')
         self._ax.text(0.5, 0.5, f"Chyba: {msg}", ha='center', va='center',
                       color='red', fontsize=12, transform=self._ax.transAxes)
@@ -212,22 +222,23 @@ class ChartsFrame(ctk.CTkFrame):
             self._show_no_data()
             return
 
+        c = _c()
         labels = [d['category_name'] for d in data]
         values = [abs(d['total']) for d in data]
         colors = [d['color'] for d in data]
 
         total_sum = sum(values)
 
-        # Use a layout with pie on left, legend on right
         self._fig.clear()
+        self._fig.patch.set_facecolor(c['bg'])
         gs = self._fig.add_gridspec(1, 2, width_ratios=[1.8, 1], wspace=0.1)
         ax_pie = self._fig.add_subplot(gs[0])
         ax_leg = self._fig.add_subplot(gs[1])
-        ax_pie.set_facecolor(DARK_BG)
-        ax_leg.set_facecolor(DARK_BG)
+        ax_pie.set_facecolor(c['bg'])
+        ax_leg.set_facecolor(c['bg'])
         ax_leg.axis('off')
 
-        wedge_props = {'linewidth': 1, 'edgecolor': DARK_BG}
+        wedge_props = {'linewidth': 1, 'edgecolor': c['edge']}
         wedges, texts, autotexts = ax_pie.pie(
             values,
             labels=None,
@@ -236,20 +247,16 @@ class ChartsFrame(ctk.CTkFrame):
             startangle=90,
             wedgeprops=wedge_props,
             pctdistance=0.75,
-            textprops={'color': DARK_FG, 'fontsize': 9}
+            textprops={'color': c['fg'], 'fontsize': 9}
         )
         for at in autotexts:
-            at.set_color(DARK_BG)
+            at.set_color('#1a1a1a')
             at.set_fontweight('bold')
 
-        ax_pie.set_facecolor(DARK_BG)
-
-        # Period title
         period = self._format_period(year, month)
         ax_pie.set_title(f"Výdaje podle kategorií – {period}",
-                         color=DARK_FG, fontsize=13, pad=12)
+                         color=c['fg'], fontsize=13, pad=12)
 
-        # Custom legend
         legend_lines = []
         for i, (label, value) in enumerate(zip(labels, values)):
             pct = value / total_sum * 100
@@ -258,7 +265,7 @@ class ChartsFrame(ctk.CTkFrame):
 
         y_pos = 0.98
         ax_leg.text(0.02, y_pos, f"Celkem: {total_sum:,.0f} Kč",
-                    transform=ax_leg.transAxes, color=DARK_FG,
+                    transform=ax_leg.transAxes, color=c['fg'],
                     fontsize=10, fontweight='bold', va='top')
         y_pos -= 0.06
         for color, line in legend_lines:
@@ -267,13 +274,12 @@ class ChartsFrame(ctk.CTkFrame):
                                color=color, transform=ax_leg.transAxes)
             )
             ax_leg.text(0.09, y_pos, line,
-                        transform=ax_leg.transAxes, color=DARK_FG,
+                        transform=ax_leg.transAxes, color=c['fg'],
                         fontsize=8.5, va='center', family='monospace')
             y_pos -= 0.055
             if y_pos < 0.02:
                 break
 
-        self._fig.patch.set_facecolor(DARK_BG)
         self._mpl_canvas.draw()
 
     # ── Bar Chart ─────────────────────────────────────────────────────────────
@@ -320,15 +326,16 @@ class ChartsFrame(ctk.CTkFrame):
         bar_width = 0.8 / max(n_cats, 1)
         x = np.arange(n_months)
 
+        c = _c()
         self._fig.clear()
         ax = self._fig.add_subplot(111)
-        ax.set_facecolor(DARK_AXES)
-        self._fig.patch.set_facecolor(DARK_BG)
+        ax.set_facecolor(c['axes'])
+        self._fig.patch.set_facecolor(c['bg'])
 
         for i, cat_id in enumerate(top_cats):
             values = [monthly_data.get(m, {}).get(cat_id, 0) for m in months]
             offset = (i - n_cats / 2 + 0.5) * bar_width
-            bars = ax.bar(
+            ax.bar(
                 x + offset, values, bar_width * 0.9,
                 label=cat_names[cat_id],
                 color=cat_colors[cat_id],
@@ -338,25 +345,25 @@ class ChartsFrame(ctk.CTkFrame):
         ax.set_xticks(x)
         ax.set_xticklabels(
             [MONTHS_SHORT[m - 1] if 1 <= m <= 12 else str(m) for m in months],
-            color=DARK_FG
+            color=c['fg']
         )
-        ax.tick_params(colors=DARK_FG)
+        ax.tick_params(colors=c['fg'])
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(
             lambda v, _: f"{v:,.0f}"
         ))
         for spine in ax.spines.values():
-            spine.set_edgecolor(GRID_COLOR)
-        ax.grid(axis='y', color=GRID_COLOR, alpha=0.4)
+            spine.set_edgecolor(c['grid'])
+        ax.grid(axis='y', color=c['grid'], alpha=0.4)
 
         period = f"{year}" if year else "Vše"
         ax.set_title(f"Měsíční výdaje podle kategorií – {period}",
-                     color=DARK_FG, fontsize=13)
-        ax.set_ylabel("Kč", color=DARK_FG)
+                     color=c['fg'], fontsize=13)
+        ax.set_ylabel("Kč", color=c['fg'])
 
         ax.legend(
-            loc='upper right', facecolor=DARK_BG,
-            labelcolor=DARK_FG, fontsize=8, ncol=2,
-            edgecolor=GRID_COLOR
+            loc='upper right', facecolor=c['bg'],
+            labelcolor=c['fg'], fontsize=8, ncol=2,
+            edgecolor=c['grid']
         )
 
         self._mpl_canvas.draw()
@@ -383,10 +390,11 @@ class ChartsFrame(ctk.CTkFrame):
 
         x = np.arange(len(months))
 
+        c = _c()
         self._fig.clear()
         ax = self._fig.add_subplot(111)
-        ax.set_facecolor(DARK_AXES)
-        self._fig.patch.set_facecolor(DARK_BG)
+        ax.set_facecolor(c['axes'])
+        self._fig.patch.set_facecolor(c['bg'])
 
         ax.plot(x, income, 'o-', color='#2ecc71', label='Příjmy',
                 linewidth=2, markersize=6)
@@ -394,7 +402,7 @@ class ChartsFrame(ctk.CTkFrame):
                 linewidth=2, markersize=6)
         ax.plot(x, balance, '^--', color='#3498db', label='Bilance',
                 linewidth=2, markersize=6, alpha=0.7)
-        ax.axhline(0, color=GRID_COLOR, linewidth=1, linestyle='--', alpha=0.5)
+        ax.axhline(0, color=c['grid'], linewidth=1, linestyle='--', alpha=0.5)
 
         ax.fill_between(x, 0, income, alpha=0.08, color='#2ecc71')
         ax.fill_between(x, 0, expense, alpha=0.08, color='#e74c3c')
@@ -402,24 +410,24 @@ class ChartsFrame(ctk.CTkFrame):
         ax.set_xticks(x)
         ax.set_xticklabels(
             [MONTHS_SHORT[m - 1] if 1 <= m <= 12 else str(m) for m in months],
-            color=DARK_FG
+            color=c['fg']
         )
-        ax.tick_params(colors=DARK_FG)
+        ax.tick_params(colors=c['fg'])
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(
             lambda v, _: f"{v:,.0f}"
         ))
         for spine in ax.spines.values():
-            spine.set_edgecolor(GRID_COLOR)
-        ax.grid(color=GRID_COLOR, alpha=0.3)
+            spine.set_edgecolor(c['grid'])
+        ax.grid(color=c['grid'], alpha=0.3)
 
         period = f"{year}" if year else "Vše"
         ax.set_title(f"Příjmy vs. výdaje po měsících – {period}",
-                     color=DARK_FG, fontsize=13)
-        ax.set_ylabel("Kč", color=DARK_FG)
+                     color=c['fg'], fontsize=13)
+        ax.set_ylabel("Kč", color=c['fg'])
 
         ax.legend(
-            facecolor=DARK_BG, labelcolor=DARK_FG,
-            fontsize=10, edgecolor=GRID_COLOR
+            facecolor=c['bg'], labelcolor=c['fg'],
+            fontsize=10, edgecolor=c['grid']
         )
 
         self._mpl_canvas.draw()

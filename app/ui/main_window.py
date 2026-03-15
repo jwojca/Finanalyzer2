@@ -1,8 +1,10 @@
 """
 Main application window for FinAnalazer2.
 """
+import json
 import tkinter as tk
 from tkinter import messagebox
+from pathlib import Path
 import threading
 import customtkinter as ctk
 
@@ -18,12 +20,15 @@ def _attach_tooltip(widget, text: str):
 
     def show(event):
         nonlocal tip
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
         x = widget.winfo_rootx() + widget.winfo_width() + 4
         y = widget.winfo_rooty() + (widget.winfo_height() - 20) // 2
         tip = tk.Toplevel(widget)
         tip.wm_overrideredirect(True)
         tip.wm_geometry(f"+{x}+{y}")
-        tk.Label(tip, text=text, background="#2b2b2b", foreground="white",
+        tk.Label(tip, text=text,
+                 background="#2b2b2b" if is_dark else "#f0f0f0",
+                 foreground="white" if is_dark else "#1a1a1a",
                  relief="flat", padx=6, pady=3,
                  font=("Segoe UI", 10)).pack()
 
@@ -39,7 +44,26 @@ from app.ui.categories_frame import CategoriesFrame
 from app.ui.keywords_frame import KeywordsFrame
 from app.ui.import_frame import ImportDialog
 
-ctk.set_appearance_mode("dark")
+_CONFIG_PATH = Path(__file__).parent.parent.parent / "data" / "config.json"
+
+
+def _load_config() -> dict:
+    try:
+        return json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_config(data: dict):
+    try:
+        _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+_cfg = _load_config()
+ctk.set_appearance_mode(_cfg.get("theme", "dark"))
 ctk.set_default_color_theme("blue")
 
 SIDEBAR_WIDTH = 210
@@ -97,11 +121,22 @@ class MainWindow(ctk.CTk):
             text_color="black", font=ctk.CTkFont(weight="bold"),
             command=self._open_import
         )
-        self.btn_import.grid(row=1, column=0, padx=12, pady=(4, 12), sticky="ew")
+        self.btn_import.grid(row=1, column=0, padx=12, pady=(4, 4), sticky="ew")
+
+        # Theme toggle (below import button)
+        self._theme_btn = ctk.CTkButton(
+            self.sidebar, text="☀ Denní režim",
+            height=30, fg_color="transparent", border_width=1,
+            font=ctk.CTkFont(size=12),
+            text_color=("gray10", "gray90"),
+            command=self._toggle_theme
+        )
+        self._theme_btn.grid(row=2, column=0, padx=12, pady=(0, 10), sticky="ew")
+        self._update_theme_btn()
 
         ctk.CTkLabel(self.sidebar, text="NAVIGACE",
                      font=ctk.CTkFont(size=10), text_color="gray").grid(
-            row=2, column=0, padx=16, pady=(0, 4), sticky="w"
+            row=3, column=0, padx=16, pady=(0, 4), sticky="w"
         )
 
         # Nav buttons
@@ -118,10 +153,11 @@ class MainWindow(ctk.CTk):
                 self.sidebar, text=label,
                 height=NAV_BUTTON_HEIGHT, anchor="w",
                 fg_color="transparent", hover_color="#1f538d",
+                text_color=("gray10", "gray90"),
                 border_width=0, corner_radius=6,
                 command=lambda k=key: self.show_frame(k)
             )
-            btn.grid(row=3 + i, column=0, padx=8, pady=2, sticky="ew")
+            btn.grid(row=4 + i, column=0, padx=8, pady=2, sticky="ew")
             self._nav_buttons[key] = btn
 
         # Uncategorized badge (Transakce)
@@ -361,6 +397,25 @@ class MainWindow(ctk.CTk):
                 self._dup_badge_label.place_forget()
         except Exception:
             pass
+
+    def _toggle_theme(self):
+        current = ctk.get_appearance_mode().lower()
+        new_theme = "light" if current == "dark" else "dark"
+        ctk.set_appearance_mode(new_theme)
+        _save_config({**_load_config(), "theme": new_theme})
+        self._update_theme_btn()
+        # Re-apply treeview styles (ttk doesn't auto-adapt)
+        from app.ui.transactions_frame import _apply_treeview_style as _tx_style
+        from app.ui.keywords_frame import _apply_treeview_style as _kw_style
+        _tx_style()
+        _kw_style()
+        # Redraw charts if initialized
+        if self._frames.get("grafy") is not None:
+            self._frames["grafy"].refresh()
+
+    def _update_theme_btn(self):
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        self._theme_btn.configure(text="☀ Denní režim" if is_dark else "🌙 Noční režim")
 
     def set_status(self, text: str):
         self.status_var.set(text)
