@@ -41,7 +41,8 @@ def init_db():
                 parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
                 color TEXT DEFAULT '#5599ff',
                 is_transfer BOOLEAN DEFAULT 0,
-                is_income BOOLEAN DEFAULT 0
+                is_income BOOLEAN DEFAULT 0,
+                direction TEXT DEFAULT NULL
             );
 
             CREATE TABLE IF NOT EXISTS keywords (
@@ -76,9 +77,13 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(import_hash);
             CREATE INDEX IF NOT EXISTS idx_keywords_category ON keywords(category_id);
         """)
-        # Migration: add note column if missing (safe to run on existing DB)
+        # Migrations (safe to run on existing DB)
         try:
             conn.execute("ALTER TABLE keywords ADD COLUMN note TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE categories ADD COLUMN direction TEXT DEFAULT NULL")
         except Exception:
             pass
 
@@ -117,22 +122,23 @@ def get_category_by_id(cat_id: int) -> Optional[sqlite3.Row]:
 def add_category(name: str, parent_id: Optional[int] = None,
                  color: str = '#5599ff',
                  is_transfer: bool = False,
-                 is_income: bool = False) -> int:
+                 is_income: bool = False,
+                 direction: Optional[str] = None) -> int:
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO categories (name, parent_id, color, is_transfer, is_income) VALUES (?, ?, ?, ?, ?)",
-            (name, parent_id, color, int(is_transfer), int(is_income))
+            "INSERT INTO categories (name, parent_id, color, is_transfer, is_income, direction) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, parent_id, color, int(is_transfer), int(is_income), direction)
         )
         return cur.lastrowid
 
 
 def update_category(cat_id: int, name: str, color: str,
                     is_transfer: bool = False, is_income: bool = False,
-                    parent_id: int = None):
+                    parent_id: int = None, direction: Optional[str] = None):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE categories SET name=?, color=?, is_transfer=?, is_income=?, parent_id=? WHERE id=?",
-            (name, color, int(is_transfer), int(is_income), parent_id, cat_id)
+            "UPDATE categories SET name=?, color=?, is_transfer=?, is_income=?, parent_id=?, direction=? WHERE id=?",
+            (name, color, int(is_transfer), int(is_income), parent_id, direction, cat_id)
         )
 
 
@@ -162,7 +168,7 @@ def get_keywords(category_id: Optional[int] = None) -> List[sqlite3.Row]:
     with get_conn() as conn:
         if category_id is not None:
             rows = conn.execute(
-                """SELECT k.*, c.name as category_name
+                """SELECT k.*, c.name as category_name, c.direction as category_direction
                    FROM keywords k JOIN categories c ON k.category_id=c.id
                    WHERE k.category_id=?
                    ORDER BY k.priority DESC, k.keyword""",
@@ -170,7 +176,7 @@ def get_keywords(category_id: Optional[int] = None) -> List[sqlite3.Row]:
             ).fetchall()
         else:
             rows = conn.execute(
-                """SELECT k.*, c.name as category_name
+                """SELECT k.*, c.name as category_name, c.direction as category_direction
                    FROM keywords k JOIN categories c ON k.category_id=c.id
                    ORDER BY k.priority DESC, k.keyword"""
             ).fetchall()

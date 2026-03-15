@@ -14,7 +14,7 @@ def categorize_transaction(tx: Dict[str, Any],
     """
     Match a transaction dict against a list of keyword rows.
     Returns category_id or None.
-    Keyword rows must have: keyword, category_id, field, priority.
+    Keyword rows must have: keyword, category_id, field, priority, category_direction.
     Higher priority wins; among equal priority, longer keyword wins.
     """
     best_cat = None
@@ -24,11 +24,19 @@ def categorize_transaction(tx: Dict[str, Any],
     description = (tx.get('description') or '').upper()
     message = (tx.get('message') or '').upper()
     payer_payee = (tx.get('payer_payee') or '').upper()
+    amount = tx.get('amount') or 0
 
     for kw in keywords:
         kw_text = kw['keyword'].upper()
         field = kw['field'] or 'all'
         priority = kw['priority'] or 0
+
+        # Check direction constraint
+        direction = kw['category_direction'] if 'category_direction' in kw.keys() else None
+        if direction == 'income' and amount <= 0:
+            continue
+        if direction == 'expense' and amount >= 0:
+            continue
 
         matched = False
         if field == 'all':
@@ -73,6 +81,7 @@ def categorize_all_uncategorized() -> int:
             'description': tx['description'],
             'message': tx['message'],
             'payer_payee': tx['payer_payee'],
+            'amount': tx['amount'],
         }
         cat_id = categorize_transaction(tx_dict, keywords)
         if cat_id is not None:
@@ -105,6 +114,7 @@ def recategorize_all(auto_only: bool = True) -> int:
             'description': tx['description'],
             'message': tx['message'],
             'payer_payee': tx['payer_payee'],
+            'amount': tx['amount'],
         }
         cat_id = categorize_transaction(tx_dict, keywords)
         if cat_id is not None:

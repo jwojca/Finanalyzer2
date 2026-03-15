@@ -127,9 +127,22 @@ class CategoriesFrame(ctk.CTkFrame):
         ctk.CTkCheckBox(flags_frame, text="Příjem",
                         variable=self._is_income_var).pack(side="left")
 
+        # Direction
+        ctk.CTkLabel(right, text="Směr plateb:").grid(
+            row=6, column=0, padx=16, pady=6, sticky="w")
+        self._direction_var = tk.StringVar(value="Oboje")
+        self._direction_cb = ctk.CTkComboBox(
+            right,
+            variable=self._direction_var,
+            values=["Oboje", "Pouze příchozí (+)", "Pouze odchozí (-)"],
+            state="readonly",
+            width=200
+        )
+        self._direction_cb.grid(row=6, column=1, padx=(0, 16), pady=6, sticky="w")
+
         # Save/Delete buttons
         btn_row2 = ctk.CTkFrame(right, fg_color="transparent")
-        btn_row2.grid(row=6, column=0, columnspan=2, pady=(16, 8), padx=16, sticky="w")
+        btn_row2.grid(row=7, column=0, columnspan=2, pady=(16, 8), padx=16, sticky="w")
 
         ctk.CTkButton(btn_row2, text="Uložit", width=100,
                       command=self._save_category).pack(side="left", padx=(0, 8))
@@ -144,7 +157,22 @@ class CategoriesFrame(ctk.CTkFrame):
         self._info_var = tk.StringVar(value="")
         ctk.CTkLabel(right, textvariable=self._info_var,
                      text_color="gray", font=ctk.CTkFont(size=11)).grid(
-            row=7, column=0, columnspan=2, padx=16, pady=4, sticky="w")
+            row=8, column=0, columnspan=2, padx=16, pady=4, sticky="w")
+
+    # ── Direction helpers ─────────────────────────────────────────────────────
+
+    _DIRECTION_TO_DB = {
+        "Oboje": None,
+        "Pouze příchozí (+)": "income",
+        "Pouze odchozí (-)": "expense",
+    }
+    _DIRECTION_FROM_DB = {v: k for k, v in _DIRECTION_TO_DB.items()}
+
+    def _direction_label(self, direction: Optional[str]) -> str:
+        return self._DIRECTION_FROM_DB.get(direction, "Oboje")
+
+    def _direction_db(self) -> Optional[str]:
+        return self._DIRECTION_TO_DB.get(self._direction_var.get())
 
     # ── Category tree rendering ───────────────────────────────────────────────
 
@@ -220,6 +248,11 @@ class CategoriesFrame(ctk.CTkFrame):
             flags += " [T]"
         if cat['is_income']:
             flags += " [P]"
+        direction = cat['direction'] if 'direction' in cat.keys() else None
+        if direction == 'income':
+            flags += " [↓]"
+        elif direction == 'expense':
+            flags += " [↑]"
 
         name_label = ctk.CTkLabel(
             frame, text=cat['name'] + flags,
@@ -251,6 +284,8 @@ class CategoriesFrame(ctk.CTkFrame):
                 self._set_color(cat['color'] or '#5599ff')
                 self._is_transfer_var.set(bool(cat['is_transfer']))
                 self._is_income_var.set(bool(cat['is_income']))
+                direction = cat['direction'] if 'direction' in cat.keys() else None
+                self._direction_var.set(self._direction_label(direction))
                 # Parent
                 if cat['parent_id']:
                     parent = db.get_category_by_id(cat['parent_id'])
@@ -295,6 +330,7 @@ class CategoriesFrame(ctk.CTkFrame):
         self._set_color("#5599ff")
         self._is_transfer_var.set(False)
         self._is_income_var.set(False)
+        self._direction_var.set("Oboje")
         self._parent_var.set("(žádná)")
         self._info_var.set("Nová hlavní kategorie")
 
@@ -318,6 +354,7 @@ class CategoriesFrame(ctk.CTkFrame):
         self._set_color("#5599ff")
         self._is_transfer_var.set(False)
         self._is_income_var.set(False)
+        self._direction_var.set("Oboje")
         # Set parent combo
         try:
             if self._selected_parent_id:
@@ -333,6 +370,7 @@ class CategoriesFrame(ctk.CTkFrame):
         self._set_color("#5599ff")
         self._is_transfer_var.set(False)
         self._is_income_var.set(False)
+        self._direction_var.set("Oboje")
         self._parent_var.set("(žádná)")
         self._info_var.set("Nová kategorie")
 
@@ -353,15 +391,17 @@ class CategoriesFrame(ctk.CTkFrame):
         parent_name = self._parent_var.get()
         parent_id = self._parent_map.get(parent_name) if parent_name != "(žádná)" else None
 
+        direction = self._direction_db()
         try:
             if self._selected_cat_id is not None:
                 db.update_category(self._selected_cat_id, name, color,
                                    is_transfer=is_transfer, is_income=is_income,
-                                   parent_id=parent_id)
+                                   parent_id=parent_id, direction=direction)
                 self._info_var.set(f"Uloženo: {name}")
             else:
                 new_id = db.add_category(name, parent_id, color,
-                                         is_transfer=is_transfer, is_income=is_income)
+                                         is_transfer=is_transfer, is_income=is_income,
+                                         direction=direction)
                 self._selected_cat_id = new_id
                 self._info_var.set(f"Přidáno: {name}")
 
