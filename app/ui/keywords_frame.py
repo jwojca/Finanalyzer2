@@ -8,6 +8,7 @@ import customtkinter as ctk
 
 from app import database as db
 from app import categorizer
+from app.ui.widgets import SearchableDropdown
 
 
 def _attach_tooltip(widget, text: str):
@@ -90,7 +91,7 @@ class KeywordsFrame(ctk.CTkFrame):
         ctk.CTkLabel(top, text="Filtr kategorie:").grid(
             row=0, column=0, padx=(12, 4), pady=8)
         self._cat_filter_var = tk.StringVar(value="Všechny")
-        self._cat_filter_cb = ctk.CTkComboBox(
+        self._cat_filter_cb = SearchableDropdown(
             top, variable=self._cat_filter_var, width=180,
             command=lambda _: self._apply_filter()
         )
@@ -397,8 +398,8 @@ class KeywordDialog(ctk.CTkToplevel):
                         break
 
         self._cat_var = tk.StringVar(value=init_display or (cat_values[0] if cat_values else ""))
-        ctk.CTkComboBox(self, variable=self._cat_var,
-                        values=cat_values, width=280).grid(
+        SearchableDropdown(self, variable=self._cat_var,
+                           values=cat_values, width=280).grid(
             row=1, column=1, padx=(0, 16), pady=6, sticky="ew")
 
         # Field
@@ -406,8 +407,8 @@ class KeywordDialog(ctk.CTkToplevel):
             row=2, column=0, padx=16, pady=6, sticky="w")
         field_display = FIELD_LABELS.get(self._init_field, 'Vše')
         self._field_var = tk.StringVar(value=field_display)
-        ctk.CTkComboBox(self, variable=self._field_var,
-                        values=FIELD_DISPLAY, width=160).grid(
+        SearchableDropdown(self, variable=self._field_var,
+                           values=FIELD_DISPLAY, width=160).grid(
             row=2, column=1, padx=(0, 16), pady=6, sticky="w")
 
         # Priority

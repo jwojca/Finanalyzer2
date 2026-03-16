@@ -8,6 +8,7 @@ import threading
 import customtkinter as ctk
 
 from app import database as db
+from app.ui.widgets import SearchableDropdown
 
 
 def _apply_treeview_style():
@@ -72,8 +73,8 @@ class TransactionsFrame(ctk.CTkFrame):
             row=0, column=col, padx=(12, 4), pady=8)
         col += 1
         self._year_var = tk.StringVar(value="Všechny")
-        self._year_cb = ctk.CTkComboBox(
-            filter_frame, variable=self._year_var, width=90,
+        self._year_cb = SearchableDropdown(
+            filter_frame, variable=self._year_var, width=120,
             command=lambda _: self._on_filter_change()
         )
         self._year_cb.grid(row=0, column=col, padx=4, pady=8)
@@ -83,8 +84,8 @@ class TransactionsFrame(ctk.CTkFrame):
             row=0, column=col, padx=(8, 4), pady=8)
         col += 1
         self._month_var = tk.StringVar(value="Všechny")
-        self._month_cb = ctk.CTkComboBox(
-            filter_frame, variable=self._month_var, width=110,
+        self._month_cb = SearchableDropdown(
+            filter_frame, variable=self._month_var, width=120,
             values=list(MONTHS.values()),
             command=lambda _: self._on_filter_change()
         )
@@ -95,18 +96,18 @@ class TransactionsFrame(ctk.CTkFrame):
             row=0, column=col, padx=(8, 4), pady=8)
         col += 1
         self._type_var = tk.StringVar(value="Vše")
-        ctk.CTkComboBox(
-            filter_frame, variable=self._type_var, width=100,
+        SearchableDropdown(
+            filter_frame, variable=self._type_var, width=120,
             values=["Vše", "Příjmy", "Výdaje"],
             command=lambda _: self._on_filter_change()
         ).grid(row=0, column=col, padx=4, pady=8)
         col += 1
 
         ctk.CTkLabel(filter_frame, text="Kategorie:").grid(
-            row=0, column=col, padx=(8, 4), pady=8)
+            row=0, column=col, padx=(4, 2), pady=8)
         col += 1
         self._cat_var = tk.StringVar(value="Všechny")
-        self._cat_cb = ctk.CTkComboBox(
+        self._cat_cb = SearchableDropdown(
             filter_frame, variable=self._cat_var, width=160,
             command=lambda _: self._on_filter_change()
         )
