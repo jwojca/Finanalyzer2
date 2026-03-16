@@ -30,6 +30,7 @@ class SearchableDropdown(ctk.CTkFrame):
         self._scrollbar: tk.Scrollbar | None = None
         self._ignore_focus_out = False
         self._saved_value: str = ""  # value before user started typing
+        self._just_selected = False  # prevents focus-in from clearing after selection
 
         # fix width — CTkFrame ignores width unless propagation is off
         self.grid_propagate(False)
@@ -105,6 +106,9 @@ class SearchableDropdown(ctk.CTkFrame):
             self._show_popup()
 
     def _on_focus_in(self, _event=None):
+        if self._just_selected:
+            self._just_selected = False
+            return
         self._saved_value = self._var.get()
         self._var.set("")  # clear so user types into empty field
         if not (self._popup and self._popup.winfo_exists()):
@@ -249,6 +253,7 @@ class SearchableDropdown(ctk.CTkFrame):
         if sel:
             value = self._listbox.get(sel[0])
             self._ignore_focus_out = True
+            self._just_selected = True
             self._var.set(value)
             self._close_popup()
             self._ignore_focus_out = False
