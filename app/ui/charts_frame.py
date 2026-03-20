@@ -26,7 +26,7 @@ def _c():
         'edge': '#1a1a1a',
     }
 
-MONTHS_SHORT = ["Sty", "Úno", "Bře", "Dub", "Kvě", "Čvn",
+MONTHS_SHORT = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn",
                 "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
 
 
