@@ -636,7 +636,7 @@ class CategoryAssignDialog(ctk.CTkToplevel):
             self._cat_map[cat['name']] = cat['id']
 
         self._cat_var = tk.StringVar(value=values[0] if values else "")
-        self._cb = ctk.CTkComboBox(self, variable=self._cat_var, values=values, width=340)
+        self._cb = SearchableDropdown(self, values=values, variable=self._cat_var, width=340)
         self._cb.grid(row=1, column=0, padx=20, pady=8)
 
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")

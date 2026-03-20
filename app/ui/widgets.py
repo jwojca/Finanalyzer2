@@ -31,6 +31,7 @@ class SearchableDropdown(ctk.CTkFrame):
         self._ignore_focus_out = False
         self._saved_value: str = ""  # value before user started typing
         self._just_selected = False  # prevents focus-in from clearing after selection
+        self._click_handled = False  # Button-1 fired first, FocusIn should skip
 
         # fix width — CTkFrame ignores width unless propagation is off
         self.grid_propagate(False)
@@ -64,6 +65,7 @@ class SearchableDropdown(ctk.CTkFrame):
         self._arrow.grid(row=0, column=1, padx=(0, 2))
 
         # bindings
+        self._entry.bind("<Button-1>", self._on_entry_click)
         self._entry.bind("<KeyRelease>", self._on_key)
         self._entry.bind("<FocusIn>", self._on_focus_in)
         self._entry.bind("<Return>", lambda _: self._select_first())
@@ -105,12 +107,26 @@ class SearchableDropdown(ctk.CTkFrame):
         else:
             self._show_popup()
 
+    def _on_entry_click(self, _event=None):
+        """Handles both first click (gaining focus) and re-click (already focused)."""
+        self._click_handled = True
+        if self._just_selected:
+            self._just_selected = False
+            return  # keep showing selected value on first click after selection
+        self._saved_value = self._var.get()
+        self._var.set("")
+        if not (self._popup and self._popup.winfo_exists()):
+            self._show_popup()
+
     def _on_focus_in(self, _event=None):
+        if self._click_handled:
+            self._click_handled = False
+            return  # Button-1 already handled this
         if self._just_selected:
             self._just_selected = False
             return
         self._saved_value = self._var.get()
-        self._var.set("")  # clear so user types into empty field
+        self._var.set("")  # Tab navigation — clear so user types into empty field
         if not (self._popup and self._popup.winfo_exists()):
             self._show_popup()
 
