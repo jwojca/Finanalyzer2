@@ -34,6 +34,9 @@ class ChartsFrame(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, fg_color="transparent")
         self._current_chart = "pie"
+        self._drill_parent_id: Optional[int] = None   # None = top-level
+        self._drill_parent_name: str = ""
+        self._wedge_data: list = []                    # [(wedge, cat_id, cat_name), ...]
         self._build_ui()
 
     def _build_ui(self):
@@ -102,7 +105,17 @@ class ChartsFrame(ctk.CTkFrame):
             fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=self.refresh
-        ).grid(row=0, column=col, padx=(8, 12), pady=10)
+        ).grid(row=0, column=col, padx=(8, 4), pady=10)
+        col += 1
+
+        self._back_btn = ctk.CTkButton(
+            ctrl, text="← Zpět", width=80,
+            fg_color="transparent", border_width=1,
+            text_color=("gray10", "gray90"),
+            command=self._drill_back
+        )
+        self._back_btn.grid(row=0, column=col, padx=(0, 12), pady=10)
+        self._back_btn.grid_remove()  # hidden until drill-down active
 
         # ── Chart canvas ──────────────────────────────────────────────────────
         self._canvas_frame = ctk.CTkFrame(self, fg_color=_c()['bg'])
@@ -116,6 +129,7 @@ class ChartsFrame(ctk.CTkFrame):
 
         self._mpl_canvas = FigureCanvasTkAgg(self._fig, master=self._canvas_frame)
         self._mpl_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        self._fig.canvas.mpl_connect("button_press_event", self._on_pie_click)
 
         # ── No-data label ─────────────────────────────────────────────────────
         self._no_data_var = tk.StringVar(value="")
@@ -162,6 +176,10 @@ class ChartsFrame(ctk.CTkFrame):
 
     def _draw_chart(self):
         chart_type = self._chart_type_var.get()
+        if chart_type != "Koláčový" and self._drill_parent_id is not None:
+            self._drill_parent_id = None
+            self._drill_parent_name = ""
+            self._back_btn.grid_remove()
         try:
             if chart_type == "Koláčový":
                 self._draw_pie()
@@ -196,6 +214,39 @@ class ChartsFrame(ctk.CTkFrame):
                       color='red', fontsize=12, transform=self._ax.transAxes)
         self._mpl_canvas.draw()
 
+    # ── Drill-down helpers ────────────────────────────────────────────────────
+
+    def _on_pie_click(self, event):
+        """Handle click on pie wedge — drill into subcategories."""
+        if self._chart_type_var.get() != "Koláčový":
+            return
+        if event.inaxes is None:
+            return
+        for wedge, cat_id, cat_name in self._wedge_data:
+            if wedge.contains_point([event.x, event.y]):
+                if self._drill_parent_id is not None:
+                    return  # already in drill-down, no deeper level
+                # check if this category has subcategories
+                subs = db.get_subcategory_totals(
+                    cat_id,
+                    year=self._get_year(), month=self._get_month(),
+                    expense_only=not self._incl_income_var.get(),
+                    exclude_transfers=self._excl_transfers_var.get()
+                )
+                if not subs:
+                    return  # no subcategories
+                self._drill_parent_id = cat_id
+                self._drill_parent_name = cat_name
+                self._back_btn.grid()
+                self._draw_pie()
+                return
+
+    def _drill_back(self):
+        self._drill_parent_id = None
+        self._drill_parent_name = ""
+        self._back_btn.grid_remove()
+        self._draw_pie()
+
     # ── Pie Chart ─────────────────────────────────────────────────────────────
 
     def _draw_pie(self):
@@ -204,11 +255,19 @@ class ChartsFrame(ctk.CTkFrame):
         excl_transfers = self._excl_transfers_var.get()
         expense_only = not self._incl_income_var.get()
 
-        data = db.get_category_totals(
-            year=year, month=month,
-            expense_only=expense_only,
-            exclude_transfers=excl_transfers
-        )
+        if self._drill_parent_id is not None:
+            data = db.get_subcategory_totals(
+                self._drill_parent_id,
+                year=year, month=month,
+                expense_only=expense_only,
+                exclude_transfers=excl_transfers
+            )
+        else:
+            data = db.get_category_totals(
+                year=year, month=month,
+                expense_only=expense_only,
+                exclude_transfers=excl_transfers
+            )
 
         self._clear_axes()
 
@@ -223,6 +282,7 @@ class ChartsFrame(ctk.CTkFrame):
             return
 
         c = _c()
+        cat_ids = [d['category_id'] for d in data]
         labels = [d['category_name'] for d in data]
         values = [abs(d['total']) for d in data]
         colors = [d['color'] for d in data]
@@ -253,9 +313,20 @@ class ChartsFrame(ctk.CTkFrame):
             at.set_color('#1a1a1a')
             at.set_fontweight('bold')
 
+        # store wedge→category mapping for click detection
+        self._wedge_data = list(zip(wedges, cat_ids, labels))
+
         period = self._format_period(year, month)
-        ax_pie.set_title(f"Výdaje podle kategorií – {period}",
-                         color=c['fg'], fontsize=13, pad=12)
+        if self._drill_parent_id is not None:
+            title = f"{self._drill_parent_name} – podkategorie ({period})"
+            cursor_hint = ""
+        else:
+            title = f"Výdaje podle kategorií – {period}"
+            cursor_hint = "  (klikni na výseč pro detail)"
+        ax_pie.set_title(title, color=c['fg'], fontsize=13, pad=12)
+        if cursor_hint:
+            self._fig.text(0.01, 0.01, cursor_hint, color='gray',
+                           fontsize=8, transform=self._fig.transFigure)
 
         legend_lines = []
         for i, (label, value) in enumerate(zip(labels, values)):

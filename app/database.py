@@ -466,6 +466,48 @@ def get_category_totals(year: Optional[int] = None,
     return result
 
 
+def get_subcategory_totals(parent_id: int,
+                           year: Optional[int] = None,
+                           month: Optional[int] = None,
+                           expense_only: bool = True,
+                           exclude_transfers: bool = True) -> List[Dict]:
+    """
+    Returns subcategory totals for a given parent category.
+    """
+    conditions = ["t.amount != 0", "c.parent_id = ?"]
+    params: List[Any] = [parent_id]
+
+    if year:
+        conditions.append("strftime('%Y', t.date_posted) = ?")
+        params.append(str(year))
+    if month:
+        conditions.append("strftime('%m', t.date_posted) = ?")
+        params.append(f"{month:02d}")
+    if expense_only:
+        conditions.append("t.amount < 0")
+    if exclude_transfers:
+        conditions.append("(c.is_transfer = 0 OR c.is_transfer IS NULL)")
+
+    where = "WHERE " + " AND ".join(conditions)
+
+    sql = f"""
+        SELECT c.id as category_id, c.name as category_name,
+               COALESCE(c.color, '#888888') as color,
+               SUM(t.amount) as total
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        {where}
+        GROUP BY c.id
+        ORDER BY total ASC
+    """
+
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    return [{'category_id': r['category_id'], 'category_name': r['category_name'],
+             'color': r['color'], 'total': r['total']} for r in rows]
+
+
 def get_monthly_totals(year: Optional[int] = None,
                        exclude_transfers: bool = True) -> List[Dict]:
     """
