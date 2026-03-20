@@ -498,7 +498,7 @@ class TransactionsFrame(ctk.CTkFrame):
             return
 
         from app.ui.keywords_frame import KeywordDialog
-        keyword = row['description'] or row['payer_payee'] or row['message'] or ''
+        keyword = row['message'] or row['description'] or row['payer_payee'] or ''
         dialog = KeywordDialog(self, title="Vytvořit pravidlo z transakce", keyword=keyword)
         self.wait_window(dialog)
 
