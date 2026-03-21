@@ -65,7 +65,7 @@ class TransactionsFrame(ctk.CTkFrame):
         # ── Filter bar ───────────────────────────────────────────────────────
         filter_frame = ctk.CTkFrame(self, height=50)
         filter_frame.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
-        filter_frame.grid_columnconfigure(8, weight=1)
+        filter_frame.grid_columnconfigure(10, weight=1)
 
         col = 0
 
@@ -114,12 +114,15 @@ class TransactionsFrame(ctk.CTkFrame):
         self._cat_cb.grid(row=0, column=col, padx=4, pady=8)
         col += 1
 
+        ctk.CTkLabel(filter_frame, text="Hledat:").grid(
+            row=0, column=col, padx=(8, 4), pady=8)
+        col += 1
         self._search_var = tk.StringVar()
         self._search_var.trace_add('write', lambda *_: self._on_filter_change())
         ctk.CTkEntry(
             filter_frame, textvariable=self._search_var,
             placeholder_text="Hledat…", width=180
-        ).grid(row=0, column=col, padx=(8, 12), pady=8, sticky="w")
+        ).grid(row=0, column=col, padx=(0, 12), pady=8, sticky="w")
 
         # ── Stats row ────────────────────────────────────────────────────────
         stats_frame = ctk.CTkFrame(self, height=36, fg_color=("#e8e8e8", "#1e1e1e"))
@@ -440,6 +443,9 @@ class TransactionsFrame(ctk.CTkFrame):
             stats = db.get_summary_stats(
                 year=filters.get('year'),
                 month=filters.get('month'),
+                category_id=filters.get('category_id'),
+                type_filter=filters.get('type'),
+                search=filters.get('search'),
             )
             # Format helper
             def fmt(v):

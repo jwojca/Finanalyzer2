@@ -593,6 +593,9 @@ def get_available_years() -> List[int]:
 
 def get_summary_stats(year: Optional[int] = None,
                       month: Optional[int] = None,
+                      category_id: Optional[int] = None,
+                      type_filter: Optional[str] = None,
+                      search: Optional[str] = None,
                       exclude_transfers: bool = True) -> Dict:
     """Returns total income, expense, balance for filters."""
     conditions = []
@@ -604,6 +607,17 @@ def get_summary_stats(year: Optional[int] = None,
     if month:
         conditions.append("strftime('%m', t.date_posted) = ?")
         params.append(f"{month:02d}")
+    if category_id is not None:
+        conditions.append("(t.category_id = ? OR c.parent_id = ?)")
+        params.extend([category_id, category_id])
+    if type_filter == 'income':
+        conditions.append("t.amount > 0")
+    elif type_filter == 'expense':
+        conditions.append("t.amount < 0")
+    if search:
+        conditions.append("(t.description LIKE ? OR t.message LIKE ? OR t.payer_payee LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
     if exclude_transfers:
         conditions.append("(c.is_transfer = 0 OR c.is_transfer IS NULL)")
 
