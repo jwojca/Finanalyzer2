@@ -136,6 +136,8 @@ class ChartsFrame(ctk.CTkFrame):
         self._mpl_canvas = FigureCanvasTkAgg(self._fig, master=self._canvas_frame)
         self._mpl_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
         self._fig.canvas.mpl_connect("button_press_event", self._on_pie_click)
+        self._fig.canvas.mpl_connect("pick_event", self._on_bar_pick)
+        self._bar_data: dict = {}  # rect -> (cat_id, cat_name, month)
 
         # ── No-data label ─────────────────────────────────────────────────────
         self._no_data_var = tk.StringVar(value="")
@@ -253,6 +255,17 @@ class ChartsFrame(ctk.CTkFrame):
                 self._back_btn.grid()
                 self._draw_pie()
                 return
+
+    def _on_bar_pick(self, event):
+        """Handle click on bar — navigate to transactions for that category/month."""
+        rect = event.artist
+        info = self._bar_data.get(rect)
+        if info is None:
+            return
+        cat_id, cat_name, month = info
+        year = self._get_year()
+        if self._on_navigate_transactions:
+            self._on_navigate_transactions(cat_name=cat_name, year=year, month=month)
 
     def _drill_back(self):
         self._drill_parent_id = None
@@ -416,15 +429,18 @@ class ChartsFrame(ctk.CTkFrame):
         ax.set_facecolor(c['axes'])
         self._fig.patch.set_facecolor(c['bg'])
 
+        self._bar_data = {}
         for i, cat_id in enumerate(top_cats):
             values = [monthly_data.get(m, {}).get(cat_id, 0) for m in months]
             offset = (i - n_cats / 2 + 0.5) * bar_width
-            ax.bar(
+            bars = ax.bar(
                 x + offset, values, bar_width * 0.9,
                 label=cat_names[cat_id],
                 color=cat_colors[cat_id],
-                alpha=0.85
+                alpha=0.85, picker=True
             )
+            for j, rect in enumerate(bars):
+                self._bar_data[rect] = (cat_id, cat_names[cat_id], months[j])
 
         ax.set_xticks(x)
         ax.set_xticklabels(
