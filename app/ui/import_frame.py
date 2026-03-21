@@ -1,13 +1,26 @@
 """
 Import dialog for CSV files – FinAnalazer2.
 """
+import shutil
 import threading
+from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Callable, Optional
 import customtkinter as ctk
 
 from app.csv_parser import parse_mbank_csv
 from app import database as db
+
+BACKUP_DIR = Path(__file__).parent.parent.parent / "data" / "backups"
+
+
+def _backup_db() -> Path:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = BACKUP_DIR / f"transactions_{timestamp}.db"
+    shutil.copy2(db.DB_PATH, dest)
+    return dest
 
 
 class ImportDialog(ctk.CTkToplevel):
@@ -108,6 +121,7 @@ class ImportDialog(ctk.CTkToplevel):
 
     def _do_import(self, path: str):
         try:
+            _backup_db()
             transactions = parse_mbank_csv(path)
             total = len(transactions)
             if total == 0:
