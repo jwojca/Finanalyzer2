@@ -173,11 +173,17 @@ class TransactionsFrame(ctk.CTkFrame):
         self._tree.column("category", width=150, minwidth=100)
 
         # Tags for coloring
-        self._tree.tag_configure("income", foreground="#2ecc71")
-        self._tree.tag_configure("expense", foreground="#ff7675")
-        self._tree.tag_configure("uncategorized", background="#4a3800")
-        self._tree.tag_configure("transfer", foreground="#888888")
+        self._apply_tag_colors()
+        self._build_scrollbars(tree_frame)
 
+    def _apply_tag_colors(self):
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        self._tree.tag_configure("income",       foreground="#2ecc71")
+        self._tree.tag_configure("expense",      foreground="#e74c3c")
+        self._tree.tag_configure("uncategorized", background="#4a3800" if is_dark else "#fff3cd")
+        self._tree.tag_configure("transfer",     foreground="#888888")
+
+    def _build_scrollbars(self, tree_frame):
         # Scrollbars
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
         hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self._tree.xview)

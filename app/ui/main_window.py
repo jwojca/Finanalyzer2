@@ -404,11 +404,15 @@ class MainWindow(ctk.CTk):
         ctk.set_appearance_mode(new_theme)
         _save_config({**_load_config(), "theme": new_theme})
         self._update_theme_btn()
-        # Re-apply treeview styles (ttk doesn't auto-adapt)
+        # Re-apply treeview styles after CTk finishes its internal updates
         from app.ui.transactions_frame import _apply_treeview_style as _tx_style
         from app.ui.keywords_frame import _apply_treeview_style as _kw_style
-        _tx_style()
-        _kw_style()
+        self.after(100, _tx_style)
+        self.after(100, _kw_style)
+        # Re-apply tag colors (income/expense/uncategorized)
+        tx_frame = self._frames.get("transakce")
+        if tx_frame is not None:
+            self.after(100, tx_frame._apply_tag_colors)
         # Redraw charts if initialized
         if self._frames.get("grafy") is not None:
             self._frames["grafy"].refresh()
