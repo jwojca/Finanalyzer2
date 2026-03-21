@@ -30,6 +30,11 @@ MONTHS_SHORT = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn",
                 "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
 
 
+def _fmt(v) -> str:
+    """Format number with space as thousands separator (Czech/European style)."""
+    return f"{v:,.0f}".replace(",", "\u00a0")
+
+
 class ChartsFrame(ctk.CTkFrame):
     def __init__(self, parent, on_navigate_transactions=None):
         super().__init__(parent, fg_color="transparent")
@@ -339,11 +344,11 @@ class ChartsFrame(ctk.CTkFrame):
         legend_lines = []
         for i, (label, value) in enumerate(zip(labels, values)):
             pct = value / total_sum * 100
-            line = f"{label:<22}  {value:>10,.0f} Kč  ({pct:.1f}%)"
+            line = f"{label:<22}  {_fmt(value):>12} Kč  ({pct:.1f}%)"
             legend_lines.append((colors[i], line))
 
         y_pos = 0.98
-        ax_leg.text(0.02, y_pos, f"Celkem: {total_sum:,.0f} Kč",
+        ax_leg.text(0.02, y_pos, f"Celkem: {_fmt(total_sum)} Kč",
                     transform=ax_leg.transAxes, color=c['fg'],
                     fontsize=10, fontweight='bold', va='top')
         y_pos -= 0.06
@@ -428,7 +433,7 @@ class ChartsFrame(ctk.CTkFrame):
         )
         ax.tick_params(colors=c['fg'])
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(
-            lambda v, _: f"{v:,.0f}"
+            lambda v, _: _fmt(v)
         ))
         for spine in ax.spines.values():
             spine.set_edgecolor(c['grid'])
@@ -493,7 +498,7 @@ class ChartsFrame(ctk.CTkFrame):
         )
         ax.tick_params(colors=c['fg'])
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(
-            lambda v, _: f"{v:,.0f}"
+            lambda v, _: _fmt(v)
         ))
         for spine in ax.spines.values():
             spine.set_edgecolor(c['grid'])
