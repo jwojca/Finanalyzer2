@@ -31,12 +31,13 @@ MONTHS_SHORT = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn",
 
 
 class ChartsFrame(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, on_navigate_transactions=None):
         super().__init__(parent, fg_color="transparent")
         self._current_chart = "pie"
         self._drill_parent_id: Optional[int] = None   # None = top-level
         self._drill_parent_name: str = ""
         self._wedge_data: list = []                    # [(wedge, cat_id, cat_name), ...]
+        self._on_navigate_transactions = on_navigate_transactions
         self._build_ui()
 
     def _build_ui(self):
@@ -225,7 +226,14 @@ class ChartsFrame(ctk.CTkFrame):
         for wedge, cat_id, cat_name in self._wedge_data:
             if wedge.contains_point([event.x, event.y]):
                 if self._drill_parent_id is not None:
-                    return  # already in drill-down, no deeper level
+                    # In drill-down: navigate to transactions filtered by this subcategory
+                    if self._on_navigate_transactions:
+                        self._on_navigate_transactions(
+                            cat_name=cat_name,
+                            year=self._get_year(),
+                            month=self._get_month()
+                        )
+                    return
                 # check if this category has subcategories
                 subs = db.get_subcategory_totals(
                     cat_id,

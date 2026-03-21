@@ -317,7 +317,10 @@ class MainWindow(ctk.CTk):
         # Lazy init for charts (matplotlib is slow to initialize)
         if name == "grafy" and self._frames["grafy"] is None:
             from app.ui.charts_frame import ChartsFrame
-            self._frames["grafy"] = ChartsFrame(self.content)
+            self._frames["grafy"] = ChartsFrame(
+                self.content,
+                on_navigate_transactions=self._navigate_to_transactions
+            )
             self._frames["grafy"].grid(row=0, column=0, sticky="nsew")
 
         frame = self._frames.get(name)
@@ -397,6 +400,12 @@ class MainWindow(ctk.CTk):
                 self._dup_badge_label.place_forget()
         except Exception:
             pass
+
+    def _navigate_to_transactions(self, cat_name: str, year, month):
+        self.show_frame("transakce")
+        tx = self._frames.get("transakce")
+        if tx:
+            tx.navigate_to(cat_name=cat_name, year=year, month=month)
 
     def _toggle_theme(self):
         current = ctk.get_appearance_mode().lower()

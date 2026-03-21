@@ -562,6 +562,22 @@ class TransactionsFrame(ctk.CTkFrame):
 
     # ── Public ────────────────────────────────────────────────────────────────
 
+    def navigate_to(self, cat_name: str, year: Optional[int], month: Optional[int]):
+        """Set filters and reload — called from Charts drill-down navigation."""
+        self._refresh_year_combo()
+        self._refresh_category_combo()
+        if year:
+            self._year_var.set(str(year))
+        else:
+            self._year_var.set("Všechny")
+        if month and month in MONTHS:
+            self._month_var.set(MONTHS[month])
+        else:
+            self._month_var.set("Všechny")
+        self._cat_var.set(cat_name)
+        self._offset = 0
+        self._load_transactions()
+
     def refresh(self):
         self._refresh_year_combo()
         self._refresh_category_combo()
