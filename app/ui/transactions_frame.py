@@ -674,6 +674,8 @@ class CategoryAssignDialog(ctk.CTkToplevel):
                       command=self._ok).pack(side="left", padx=(0, 8))
         ctk.CTkButton(btn_frame, text="Zrušit", width=80,
                       fg_color="transparent", border_width=1,
+                      text_color=("black", "white"),
+                      hover_color=("#c0392b", "#c0392b"),
                       command=self.destroy).pack(side="left")
 
     def _ok(self):
